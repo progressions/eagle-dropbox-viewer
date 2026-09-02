@@ -7,12 +7,23 @@ defmodule EagleDropboxViewer.Library do
 
   alias EagleDropboxViewer.Dropbox
   alias EagleDropboxViewer.Dropbox.Client
-  alias EagleDropboxViewer.Library.{Item, Sync}
+  alias EagleDropboxViewer.Library.{Item, SmartConditions, Sync}
   alias EagleDropboxViewer.Repo
 
   @page_size 60
 
+  # Pinned sidebar entries (resolved by name from the last sync).
+  @pinned [
+    %{key: "intake", label: "Intake", kind: :intake},
+    %{key: "eunbi", label: "Eunbi", kind: :smart, name: "Eunbi"},
+    %{key: "sofie", label: "Sofie", kind: :smart, name: "Sofie"},
+    %{key: "shadow-kingdom", label: "Shadow Kingdom", kind: :smart, name: "Shadow Kingdom"},
+    %{key: "movies", label: "Movies", kind: :smart, name: "Movies"},
+    %{key: "music", label: "Music", kind: :smart, name: "Music"}
+  ]
+
   def page_size, do: @page_size
+  def pinned_nav, do: @pinned
 
   def item_count do
     Repo.aggregate(Item, :count)
@@ -27,14 +38,99 @@ defmodule EagleDropboxViewer.Library do
 
   def get_item(id) when is_binary(id), do: Repo.get(Item, id)
 
-  def recent_page(page \\ 1) when is_integer(page) and page >= 1 do
-    offset = (page - 1) * @page_size
+  def nav_entries do
+    sync = latest_sync()
+    smarts = flatten_smart_folders((sync && sync.smart_folders) || [])
+    folders = flatten_folders((sync && sync.folders) || [])
 
+    Enum.map(@pinned, fn entry ->
+      case entry.kind do
+        :intake ->
+          Map.put(entry, :resolved_id, nil)
+
+        :smart ->
+          id =
+            smarts
+            |> Enum.find_value(fn {sf, _depth} ->
+              if sf["name"] == entry.name, do: sf["id"]
+            end)
+
+          Map.merge(entry, %{resolved_id: id, node: Enum.find(smarts, fn {sf, _} -> sf["id"] == id end)})
+
+        :folder ->
+          id =
+            folders
+            |> Enum.find_value(fn {f, _depth} ->
+              if String.downcase(f["name"] || "") == String.downcase(entry.name), do: f["id"]
+            end)
+
+          Map.put(entry, :resolved_id, id)
+      end
+    end)
+  end
+
+  def recent_page(page \\ 1) when is_integer(page) and page >= 1 do
+    view_page("recent", page)
+  end
+
+  def view_page(view_key, page \\ 1) when is_binary(view_key) and is_integer(page) and page >= 1 do
+    offset = (page - 1) * @page_size
+    items = items_for_view(view_key)
+    total = length(items)
+    page_items = items |> Enum.drop(offset) |> Enum.take(@page_size)
+    total_pages = if total == 0, do: 1, else: div(total + @page_size - 1, @page_size)
+
+    %{items: page_items, total: total, total_pages: total_pages, page: page}
+  end
+
+  def items_for_view("recent") do
     Item
-    |> order_by([i], desc: i.mtime)
-    |> limit(^@page_size)
-    |> offset(^offset)
     |> Repo.all()
+    |> sort_added_desc()
+  end
+
+  def items_for_view("intake") do
+    Item
+    |> where([i], i.folders == [] or is_nil(i.folders))
+    |> Repo.all()
+    |> sort_added_desc()
+  end
+
+  def items_for_view(view_key) when is_binary(view_key) do
+    entry = Enum.find(nav_entries(), &(&1.key == view_key))
+
+    cond do
+      is_nil(entry) ->
+        []
+
+      entry.kind == :smart and entry.resolved_id ->
+        sync = latest_sync()
+        smarts = flatten_smart_folders((sync && sync.smart_folders) || [])
+
+        case Enum.find(smarts, fn {sf, _} -> sf["id"] == entry.resolved_id end) do
+          {sf, _} ->
+            conditions = sf["inherited"] || sf["conditions"] || []
+
+            Item
+            |> Repo.all()
+            |> Enum.filter(&SmartConditions.eval_conditions(&1, conditions))
+            |> sort_added_desc()
+
+          nil ->
+            []
+        end
+
+      entry.kind == :folder and entry.resolved_id ->
+        folder_id = entry.resolved_id
+
+        Item
+        |> where([i], ^folder_id in i.folders)
+        |> Repo.all()
+        |> sort_added_desc()
+
+      true ->
+        []
+    end
   end
 
   def total_pages do
@@ -95,7 +191,9 @@ defmodule EagleDropboxViewer.Library do
         built_at: index["built_at"],
         index_updated_at: index["updated_at"],
         item_count: length(items),
-        synced_at: now
+        synced_at: now,
+        smart_folders: %{"roots" => index["smart_folders"] || []},
+        folders: %{"roots" => index["folders"] || []}
       }
 
       %Sync{}
@@ -109,6 +207,46 @@ defmodule EagleDropboxViewer.Library do
   end
 
   def apply_index(_), do: {:error, :invalid_index}
+
+
+  # Match eagle-browse default: "Added · newest" (btime), with mtime fallback.
+  defp sort_added_desc(items) when is_list(items) do
+    now_ms = System.system_time(:millisecond)
+
+    Enum.sort_by(
+      items,
+      fn item ->
+        t = item.btime || 0
+
+        t =
+          if t <= 0 or t > now_ms + 60_000 do
+            item.mtime || 0
+          else
+            t
+          end
+
+        {-t, item.id || ""}
+      end
+    )
+  end
+
+  def flatten_smart_folders(%{"roots" => roots}) when is_list(roots), do: flatten_smart_folders(roots)
+  def flatten_smart_folders(nodes) when is_list(nodes), do: walk_nodes(nodes, 0)
+  def flatten_smart_folders(_), do: []
+
+  def flatten_folders(%{"roots" => roots}) when is_list(roots), do: flatten_folders(roots)
+  def flatten_folders(nodes) when is_list(nodes), do: walk_nodes(nodes, 0)
+  def flatten_folders(_), do: []
+
+  defp walk_nodes(nodes, depth) do
+    Enum.flat_map(nodes, fn
+      node when is_map(node) ->
+        [{node, depth} | walk_nodes(node["children"] || [], depth + 1)]
+
+      _ ->
+        []
+    end)
+  end
 
   defp row_from_index_item(%{"id" => id, "name" => name} = item, now)
        when is_binary(id) and is_binary(name) do
@@ -125,6 +263,7 @@ defmodule EagleDropboxViewer.Library do
       size: item["size"],
       has_thumb: item["has_thumb"] == true,
       duration: item["duration"],
+      star: item["star"],
       inserted_at: now,
       updated_at: now
     }

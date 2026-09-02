@@ -11,13 +11,23 @@ defmodule EagleDropboxViewer.Library.Sync do
     field :index_updated_at, :string
     field :item_count, :integer, default: 0
     field :synced_at, :utc_datetime
+    field :smart_folders, :map
+    field :folders, :map
 
     timestamps(type: :utc_datetime)
   end
 
   def changeset(sync, attrs) do
     sync
-    |> cast(attrs, [:index_version, :built_at, :index_updated_at, :item_count, :synced_at])
+    |> cast(attrs, [
+      :index_version,
+      :built_at,
+      :index_updated_at,
+      :item_count,
+      :synced_at,
+      :smart_folders,
+      :folders
+    ])
     |> validate_required([:item_count, :synced_at])
   end
 end

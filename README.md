@@ -75,3 +75,16 @@ With Dropbox connected:
 1. Settings → **Sync index now** (downloads `phone-index.json`)
 2. Open **Browse** (`/browse`) for the recent grid
 3. Click a cell for detail; thumbs/originals use Dropbox temporary links via `/media/...`
+
+
+## Smart folders / pinned views
+
+Browse sidebar pins:
+
+- **Intake** — items with no Eagle folders (same as phone-browse “Intake”)
+- **Eunbi / Sofie / Shadow Kingdom / Movies** — top-level smart folders (conditions from `phone-index.json`)
+- **Music** — top-level smart folder (tag `music`)
+
+If counts look wrong vs Eagle desktop, rebuild `phone-index.json` (`eagle-browse/build_phone_index.py`) then **Sync index now** — the Dropbox copy can go stale on tags/stars.
+
+Re-sync after deploy so `star` + smart folder trees are stored.

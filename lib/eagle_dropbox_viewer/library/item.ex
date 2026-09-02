@@ -17,6 +17,7 @@ defmodule EagleDropboxViewer.Library.Item do
     field :size, :integer
     field :has_thumb, :boolean, default: false
     field :duration, :float
+    field :star, :integer
 
     timestamps(type: :utc_datetime)
   end
@@ -35,7 +36,8 @@ defmodule EagleDropboxViewer.Library.Item do
       :height,
       :size,
       :has_thumb,
-      :duration
+      :duration,
+      :star
     ])
     |> validate_required([:id, :name])
   end
