@@ -85,15 +85,15 @@ defmodule EagleDropboxViewer.Library do
 
   def items_for_view("recent") do
     Item
-    |> order_by([i], desc: i.mtime)
     |> Repo.all()
+    |> sort_added_desc()
   end
 
   def items_for_view("intake") do
     Item
     |> where([i], i.folders == [] or is_nil(i.folders))
-    |> order_by([i], desc: i.mtime)
     |> Repo.all()
+    |> sort_added_desc()
   end
 
   def items_for_view(view_key) when is_binary(view_key) do
@@ -112,9 +112,9 @@ defmodule EagleDropboxViewer.Library do
             conditions = sf["inherited"] || sf["conditions"] || []
 
             Item
-            |> order_by([i], desc: i.mtime)
             |> Repo.all()
             |> Enum.filter(&SmartConditions.eval_conditions(&1, conditions))
+            |> sort_added_desc()
 
           nil ->
             []
@@ -125,8 +125,8 @@ defmodule EagleDropboxViewer.Library do
 
         Item
         |> where([i], ^folder_id in i.folders)
-        |> order_by([i], desc: i.mtime)
         |> Repo.all()
+        |> sort_added_desc()
 
       true ->
         []
@@ -207,6 +207,28 @@ defmodule EagleDropboxViewer.Library do
   end
 
   def apply_index(_), do: {:error, :invalid_index}
+
+
+  # Match eagle-browse default: "Added · newest" (btime), with mtime fallback.
+  defp sort_added_desc(items) when is_list(items) do
+    now_ms = System.system_time(:millisecond)
+
+    Enum.sort_by(
+      items,
+      fn item ->
+        t = item.btime || 0
+
+        t =
+          if t <= 0 or t > now_ms + 60_000 do
+            item.mtime || 0
+          else
+            t
+          end
+
+        {-t, item.id || ""}
+      end
+    )
+  end
 
   def flatten_smart_folders(%{"roots" => roots}) when is_list(roots), do: flatten_smart_folders(roots)
   def flatten_smart_folders(nodes) when is_list(nodes), do: walk_nodes(nodes, 0)

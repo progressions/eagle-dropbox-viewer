@@ -104,7 +104,7 @@ defmodule EagleDropboxViewerWeb.BrowseLive do
             <%= if @item do %>
               Detail
             <% else %>
-              {@item_count} items
+              {@item_count} items · Added · newest
               <%= if @sync do %>
                 · synced {Calendar.strftime(@sync.synced_at, "%Y-%m-%d %H:%M UTC")}
               <% end %>
