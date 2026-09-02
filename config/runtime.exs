@@ -24,16 +24,16 @@ config :eagle_dropbox_viewer, EagleDropboxViewerWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 
-# App gate + Dropbox OAuth (all environments)
-config :eagle_dropbox_viewer,
-  app_username: System.get_env("APP_USERNAME", "isaac"),
-  app_password: System.get_env("APP_PASSWORD"),
-  dropbox_app_key: System.get_env("DROPBOX_APP_KEY"),
-  dropbox_app_secret: System.get_env("DROPBOX_APP_SECRET"),
-  dropbox_redirect_uri:
-    System.get_env("DROPBOX_REDIRECT_URI", "http://localhost:4010/auth/dropbox/callback"),
-  dropbox_library_path:
-    System.get_env("DROPBOX_LIBRARY_PATH", "/ISAAC/GENNIE/Eunbi.library")
+# App gate + Dropbox OAuth — only override keys present in the environment
+# (keeps config/dev.exs and config/test.exs defaults).
+if username = System.get_env("APP_USERNAME"), do: config(:eagle_dropbox_viewer, app_username: username)
+if password = System.get_env("APP_PASSWORD"), do: config(:eagle_dropbox_viewer, app_password: password)
+if key = System.get_env("DROPBOX_APP_KEY"), do: config(:eagle_dropbox_viewer, dropbox_app_key: key)
+if secret = System.get_env("DROPBOX_APP_SECRET"), do: config(:eagle_dropbox_viewer, dropbox_app_secret: secret)
+if redirect = System.get_env("DROPBOX_REDIRECT_URI"),
+  do: config(:eagle_dropbox_viewer, dropbox_redirect_uri: redirect)
+if path = System.get_env("DROPBOX_LIBRARY_PATH"),
+  do: config(:eagle_dropbox_viewer, dropbox_library_path: path)
 
 
 if config_env() == :dev do
@@ -54,22 +54,18 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
-  database_url =
-    System.get_env("DATABASE_URL") ||
+  # Local/prod default is SQLite (Repo adapter). Set DATABASE_PATH.
+  # If you later switch the Repo adapter back to Postgres, use DATABASE_URL instead.
+  database_path =
+    System.get_env("DATABASE_PATH") ||
       raise """
-      environment variable DATABASE_URL is missing.
-      For example: ecto://USER:PASS@HOST/DATABASE
+      environment variable DATABASE_PATH is missing.
+      For example: /var/lib/eagle_dropbox_viewer/prod.db
       """
 
-  maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
-
   config :eagle_dropbox_viewer, EagleDropboxViewer.Repo,
-    # ssl: true,
-    url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    # For machines with several cores, consider starting multiple pools of `pool_size`
-    # pool_count: 4,
-    socket_options: maybe_ipv6
+    database: database_path,
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5")
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

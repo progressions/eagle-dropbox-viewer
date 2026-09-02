@@ -40,3 +40,8 @@ npm-debug.log
 .env
 .env.*
 !.env.example
+
+# local sqlite
+/eagle_dropbox_viewer_data/
+*.db
+*.db-*

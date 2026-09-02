@@ -1,0 +1,27 @@
+# Local Postgres for Eagle Dropbox Viewer (Ginger).
+# PromptForge uses SQLite; this app expects Postgres.
+#
+#   sudo docker compose up -d
+#   mix ecto.create && mix ecto.migrate
+#
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: eagle-dropbox-viewer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: eagle_dropbox_viewer_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - eagle_dropbox_viewer_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  eagle_dropbox_viewer_pg:
