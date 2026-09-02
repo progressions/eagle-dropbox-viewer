@@ -75,3 +75,14 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Local defaults if env vars are unset (override with APP_* / DROPBOX_*).
+config :eagle_dropbox_viewer,
+  app_username: System.get_env("APP_USERNAME", "isaac"),
+  app_password: System.get_env("APP_PASSWORD", "dev"),
+  dropbox_app_key: System.get_env("DROPBOX_APP_KEY"),
+  dropbox_app_secret: System.get_env("DROPBOX_APP_SECRET"),
+  dropbox_redirect_uri:
+    System.get_env("DROPBOX_REDIRECT_URI", "http://localhost:4010/auth/dropbox/callback"),
+  dropbox_library_path:
+    System.get_env("DROPBOX_LIBRARY_PATH", "/ISAAC/GENNIE/Eunbi.library")

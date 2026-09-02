@@ -10,28 +10,29 @@ defmodule EagleDropboxViewerWeb.Router do
     plug :put_secure_browser_headers
   end
 
-  pipeline :api do
-    plug :accepts, ["json"]
+  pipeline :require_app_auth do
+    plug EagleDropboxViewerWeb.Plugs.RequireAppAuth
   end
 
   scope "/", EagleDropboxViewerWeb do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/login", SessionController, :new
+    post "/login", SessionController, :create
+    delete "/logout", SessionController, :delete
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", EagleDropboxViewerWeb do
-  #   pipe_through :api
-  # end
+  scope "/", EagleDropboxViewerWeb do
+    pipe_through [:browser, :require_app_auth]
 
-  # Enable LiveDashboard and Swoosh mailbox preview in development
+    get "/settings", SettingsController, :show
+    get "/auth/dropbox", DropboxAuthController, :start
+    get "/auth/dropbox/callback", DropboxAuthController, :callback
+    post "/auth/dropbox/disconnect", DropboxAuthController, :disconnect
+  end
+
   if Application.compile_env(:eagle_dropbox_viewer, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do

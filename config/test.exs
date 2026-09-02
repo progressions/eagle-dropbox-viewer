@@ -39,3 +39,11 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+config :eagle_dropbox_viewer,
+  app_username: "test",
+  app_password: "test",
+  dropbox_app_key: "test-key",
+  dropbox_app_secret: "test-secret",
+  dropbox_redirect_uri: "http://localhost:4002/auth/dropbox/callback",
+  dropbox_library_path: "/ISAAC/GENNIE/Eunbi.library"
