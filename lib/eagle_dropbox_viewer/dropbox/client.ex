@@ -4,6 +4,7 @@ defmodule EagleDropboxViewer.Dropbox.Client do
   """
 
   @api "https://api.dropboxapi.com/2"
+  @content "https://content.dropboxapi.com/2"
 
   def get_current_account(access_token) do
     post_json("/users/get_current_account", access_token, nil)
@@ -17,6 +18,35 @@ defmodule EagleDropboxViewer.Dropbox.Client do
     }
 
     post_json("/files/list_folder", access_token, body)
+  end
+
+  def download(access_token, path) when is_binary(path) do
+    arg = Jason.encode!(%{"path" => path})
+
+    case Req.post(@content <> "/files/download",
+           headers: [
+             {"authorization", "Bearer " <> access_token},
+             {"dropbox-api-arg", arg}
+           ],
+           decode_body: false
+         ) do
+      {:ok, %{status: 200, body: body}} when is_binary(body) ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:download_http, status, body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def get_temporary_link(access_token, path) when is_binary(path) do
+    case post_json("/files/get_temporary_link", access_token, %{"path" => path}) do
+      {:ok, %{"link" => link}} -> {:ok, link}
+      {:ok, other} -> {:error, {:unexpected_temp_link, other}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp post_json(path, access_token, body) do

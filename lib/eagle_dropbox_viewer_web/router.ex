@@ -27,9 +27,24 @@ defmodule EagleDropboxViewerWeb.Router do
     pipe_through [:browser, :require_app_auth]
 
     get "/settings", SettingsController, :show
+    post "/settings/sync", SettingsController, :sync
     get "/auth/dropbox", DropboxAuthController, :start
     get "/auth/dropbox/callback", DropboxAuthController, :callback
     post "/auth/dropbox/disconnect", DropboxAuthController, :disconnect
+
+    get "/media/thumb/:id", MediaController, :thumb
+    get "/media/original/:id", MediaController, :original
+  end
+
+  live_session :authenticated,
+    on_mount: [{EagleDropboxViewerWeb.AppAuth, :ensure_authenticated}],
+    layout: {EagleDropboxViewerWeb.Layouts, :root} do
+    scope "/", EagleDropboxViewerWeb do
+      pipe_through [:browser, :require_app_auth]
+
+      live "/browse", BrowseLive, :index
+      live "/browse/:id", BrowseLive, :show
+    end
   end
 
   if Application.compile_env(:eagle_dropbox_viewer, :dev_routes) do
