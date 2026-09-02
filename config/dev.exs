@@ -1,16 +1,14 @@
 import Config
 
-# Local SQLite (same idea as PromptForge). Keep the DB off Dropbox sync.
-# Optional Docker Postgres: see docker-compose.yml + switch Repo adapter.
-database_path =
-  System.get_env("DATABASE_PATH") ||
-    Path.expand("~/tech/eagle_dropbox_viewer_data/eagle_dropbox_viewer_dev.db")
-
+# Docker Compose Postgres (see docker-compose.yml).
 config :eagle_dropbox_viewer, EagleDropboxViewer.Repo,
-  database: database_path,
-  pool_size: 5,
+  username: "postgres",
+  password: "postgres",
+  hostname: "127.0.0.1",
+  database: "eagle_dropbox_viewer_dev",
   stacktrace: true,
-  show_sensitive_data_on_connection_error: true
+  show_sensitive_data_on_connection_error: true,
+  pool_size: 10
 
 # For development, we disable any cache and enable
 # debugging and code reloading.

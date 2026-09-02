@@ -6,7 +6,10 @@ import Config
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :eagle_dropbox_viewer, EagleDropboxViewer.Repo,
-  database: Path.expand("../eagle_dropbox_viewer_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
+  username: "postgres",
+  password: "postgres",
+  hostname: "127.0.0.1",
+  database: "eagle_dropbox_viewer_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 

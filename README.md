@@ -58,14 +58,11 @@ PORT=4010 mix phx.server
 - Put this behind HTTPS in production; keep `APP_*` and Dropbox secrets out of git.
 - Refresh tokens live only in Postgres (ciphertext). Revoke from Dropbox Connected apps if needed.
 
-## Local database (SQLite)
-
-Same pattern as PromptForge: SQLite on local disk (not Dropbox). Default path:
-
-`~/tech/eagle_dropbox_viewer_data/eagle_dropbox_viewer_dev.db`
+## Local Postgres (Docker)
 
 ```bash
+sudo docker compose up -d
 mix ecto.create && mix ecto.migrate
 ```
 
-Optional Docker Postgres is still in `docker-compose.yml` if you want it later (`sudo docker compose up -d`) — you'd switch `EagleDropboxViewer.Repo` back to `Ecto.Adapters.Postgres`.
+Defaults: `postgres`/`postgres` @ `127.0.0.1:5432`, db `eagle_dropbox_viewer_dev`.
