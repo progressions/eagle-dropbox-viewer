@@ -11,6 +11,29 @@ defmodule EagleDropboxViewer.LibraryTest do
       "updated_at" => "2026-01-02T00:00:00Z",
       "smart_folders" => [
         %{
+          "id" => "SFM",
+          "name" => "Music",
+          "conditions" => [
+            %{
+              "match" => "AND",
+              "boolean" => "TRUE",
+              "rules" => [
+                %{"property" => "tags", "method" => "union", "value" => ["music"]}
+              ]
+            }
+          ],
+          "inherited" => [
+            %{
+              "match" => "AND",
+              "boolean" => "TRUE",
+              "rules" => [
+                %{"property" => "tags", "method" => "union", "value" => ["music"]}
+              ]
+            }
+          ],
+          "children" => []
+        },
+        %{
           "id" => "SF1",
           "name" => "Eunbi",
           "conditions" => [
@@ -54,7 +77,7 @@ defmodule EagleDropboxViewer.LibraryTest do
           "id" => "OTHER",
           "name" => "other",
           "ext" => "jpg",
-          "tags" => ["sofie"],
+          "tags" => ["music"],
           "folders" => ["F1"],
           "mtime" => 1_700_000_000_100,
           "has_thumb" => false

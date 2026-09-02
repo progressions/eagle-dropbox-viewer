@@ -83,6 +83,8 @@ Browse sidebar pins:
 
 - **Intake** — items with no Eagle folders (same as phone-browse “Intake”)
 - **Eunbi / Sofie / Shadow Kingdom / Movies** — top-level smart folders (conditions from `phone-index.json`)
-- **Music** — regular Eagle folder `MUSIC` (not a smart folder in this library)
+- **Music** — top-level smart folder (tag `music`)
+
+If counts look wrong vs Eagle desktop, rebuild `phone-index.json` (`eagle-browse/build_phone_index.py`) then **Sync index now** — the Dropbox copy can go stale on tags/stars.
 
 Re-sync after deploy so `star` + smart folder trees are stored.

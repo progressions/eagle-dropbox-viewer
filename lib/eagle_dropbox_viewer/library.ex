@@ -19,7 +19,7 @@ defmodule EagleDropboxViewer.Library do
     %{key: "sofie", label: "Sofie", kind: :smart, name: "Sofie"},
     %{key: "shadow-kingdom", label: "Shadow Kingdom", kind: :smart, name: "Shadow Kingdom"},
     %{key: "movies", label: "Movies", kind: :smart, name: "Movies"},
-    %{key: "music", label: "Music", kind: :folder, name: "MUSIC"}
+    %{key: "music", label: "Music", kind: :smart, name: "Music"}
   ]
 
   def page_size, do: @page_size
