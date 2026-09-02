@@ -1,0 +1,73 @@
+<Layouts.flash_group flash={@flash} />
+<div class="mx-auto max-w-2xl px-4 py-10">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
+      <p class="mt-1 text-sm text-base-content/70">
+        Connect Dropbox (read-only) to browse Eagle libraries when Ginger is asleep.
+      </p>
+    </div>
+    <.form for={%{}} action={~p"/logout"} method="post">
+      <input type="hidden" name="_method" value="delete" />
+      <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+    </.form>
+  </div>
+
+  <section class="mt-10 rounded-box border border-base-300 bg-base-100 p-6">
+    <h2 class="text-lg font-medium">Dropbox</h2>
+    <p class="mt-1 text-sm text-base-content/70">
+      Scopes: <code class="text-xs">files.metadata.read</code>,
+      <code class="text-xs">files.content.read</code>,
+      <code class="text-xs">account_info.read</code>. Tokens stay on the server.
+    </p>
+    <p class="mt-2 text-sm">
+      Library path: <code class="text-xs">{@library_path}</code>
+    </p>
+
+    <%= if @connection do %>
+      <div class="mt-4 rounded-box bg-success/10 p-4 text-sm">
+        <p class="font-medium text-success">Connected</p>
+        <p class="mt-1">
+          {(@connection.display_name || "Dropbox account")}
+          <%= if @connection.account_email do %>
+            · {@connection.account_email}
+          <% end %>
+        </p>
+        <p class="mt-1 text-xs opacity-70">account_id: {@connection.account_id}</p>
+      </div>
+
+      <.form for={%{}} action={~p"/auth/dropbox/disconnect"} method="post" class="mt-4">
+        <button type="submit" class="btn btn-outline btn-error btn-sm" data-confirm="Disconnect Dropbox?">
+          Disconnect
+        </button>
+      </.form>
+
+      <div class="mt-6">
+        <h3 class="font-medium">Sample listing</h3>
+        <%= case @sample do %>
+          <% {:ok, entries} -> %>
+            <ul class="mt-2 space-y-1 text-sm">
+              <%= for entry <- entries do %>
+                <li class="font-mono text-xs">
+                  {entry[".tag"]} · {entry["name"] || entry["path_display"]}
+                </li>
+              <% end %>
+            </ul>
+          <% {:error, reason} -> %>
+            <p class="mt-2 text-sm text-error">List failed: {inspect(reason)}</p>
+          <% _ -> %>
+            <p class="mt-2 text-sm opacity-70">No sample.</p>
+        <% end %>
+      </div>
+    <% else %>
+      <%= if @dropbox_configured? do %>
+        <a href={~p"/auth/dropbox"} class="btn btn-primary mt-4">Connect Dropbox</a>
+      <% else %>
+        <p class="mt-4 text-sm text-warning">
+          Set <code>DROPBOX_APP_KEY</code> and <code>DROPBOX_APP_SECRET</code> (see `.env.example`),
+          then restart the server.
+        </p>
+      <% end %>
+    <% end %>
+  </section>
+</div>

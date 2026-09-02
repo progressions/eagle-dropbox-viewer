@@ -23,6 +23,19 @@ end
 config :eagle_dropbox_viewer, EagleDropboxViewerWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+
+# App gate + Dropbox OAuth (all environments)
+config :eagle_dropbox_viewer,
+  app_username: System.get_env("APP_USERNAME", "isaac"),
+  app_password: System.get_env("APP_PASSWORD"),
+  dropbox_app_key: System.get_env("DROPBOX_APP_KEY"),
+  dropbox_app_secret: System.get_env("DROPBOX_APP_SECRET"),
+  dropbox_redirect_uri:
+    System.get_env("DROPBOX_REDIRECT_URI", "http://localhost:4010/auth/dropbox/callback"),
+  dropbox_library_path:
+    System.get_env("DROPBOX_LIBRARY_PATH", "/ISAAC/GENNIE/Eunbi.library")
+
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :eagle_dropbox_viewer, EagleDropboxViewerWeb.Endpoint,
