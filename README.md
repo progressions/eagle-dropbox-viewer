@@ -3,7 +3,7 @@
 Internet Phoenix app to browse Isaac’s Eagle libraries over **Dropbox OAuth** (LTE, Ginger asleep).
 
 **Plan:** `~/Dropbox/ISAAC/GENNIE/Ops/eagle-dropbox-viewer.md`  
-**Not this:** LAN phone browse (`eagle-browse` / `http://eagle.local:8788`) — that stays as-is.
+**Not this:** the old LAN `phone-browse` inside eagle-browse — **retired** 2026-09-02 (Fizzy #519). This Dropbox viewer is the internet/LTE path.
 
 Repo: https://github.com/progressions/eagle-dropbox-viewer
 
