@@ -11,6 +11,11 @@ defmodule EagleDropboxViewerWeb.PageControllerTest do
     assert redirected_to(conn) == "/login"
   end
 
+  test "GET /browse redirects when signed out", %{conn: conn} do
+    conn = get(conn, ~p"/browse")
+    assert redirected_to(conn) == "/login"
+  end
+
   test "login then settings", %{conn: conn} do
     conn =
       post(conn, ~p"/login", %{

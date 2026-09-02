@@ -66,3 +66,12 @@ mix ecto.create && mix ecto.migrate
 ```
 
 Defaults: `postgres`/`postgres` @ `127.0.0.1:5432`, db `eagle_dropbox_viewer_dev`.
+
+
+## Sync + browse
+
+With Dropbox connected:
+
+1. Settings → **Sync index now** (downloads `phone-index.json`)
+2. Open **Browse** (`/browse`) for the recent grid
+3. Click a cell for detail; thumbs/originals use Dropbox temporary links via `/media/...`
