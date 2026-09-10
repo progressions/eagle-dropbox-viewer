@@ -28,6 +28,7 @@ defmodule EagleDropboxViewerWeb.Router do
 
     get "/settings", SettingsController, :show
     post "/settings/sync", SettingsController, :sync
+    post "/settings/refresh_dropbox", SettingsController, :refresh_dropbox
     get "/auth/dropbox", DropboxAuthController, :start
     get "/auth/dropbox/callback", DropboxAuthController, :callback
     post "/auth/dropbox/disconnect", DropboxAuthController, :disconnect

@@ -77,7 +77,8 @@
   <section class="mt-6 rounded-box border border-base-300 bg-base-100 p-6">
     <h2 class="text-lg font-medium">Library index</h2>
     <p class="mt-1 text-sm text-base-content/70">
-      Pulls <code class="text-xs">phone-index.json</code> from Dropbox into Postgres (~30k items).
+      Browse refreshes this automatically from Dropbox. Force a pull here only if the grid looks stale.
+      Source: <code class="text-xs">phone-index.json</code> (~30k items).
     </p>
     <%= if @sync do %>
       <p class="mt-3 text-sm">
@@ -93,10 +94,29 @@
 
     <%= if @connection do %>
       <.form for={%{}} action={~p"/settings/sync"} method="post" class="mt-4">
-        <button type="submit" class="btn btn-primary btn-sm">Sync index now</button>
+        <button type="submit" class="btn btn-outline btn-sm">Force refresh index</button>
       </.form>
     <% else %>
       <p class="mt-4 text-sm text-warning">Connect Dropbox before syncing.</p>
     <% end %>
   </section>
+
+  <section class="mt-6 rounded-box border border-base-300 bg-base-100 p-6">
+    <h2 class="text-lg font-medium">Dropbox delta cursor</h2>
+    <p class="mt-1 text-sm text-base-content/70">
+      Browse Recent loads from Postgres immediately. Background refresh uses a saved
+      Dropbox <code class="text-xs">list_folder</code> cursor (deltas). Force a full
+      recursive rebuild only if the cursor is stuck or you need to re-scan metadata.
+    </p>
+    <%= if @connection do %>
+      <.form for={%{}} action={~p"/settings/refresh_dropbox"} method="post" class="mt-4">
+        <button type="submit" class="btn btn-outline btn-warning btn-sm" data-confirm="Full Dropbox images/ walk can take ~2 minutes. Continue?">
+          Force Dropbox library rebuild
+        </button>
+      </.form>
+    <% else %>
+      <p class="mt-4 text-sm text-warning">Connect Dropbox first.</p>
+    <% end %>
+  </section>
+
 </div>

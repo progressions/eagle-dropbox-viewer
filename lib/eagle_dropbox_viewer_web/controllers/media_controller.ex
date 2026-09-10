@@ -14,7 +14,19 @@ defmodule EagleDropboxViewerWeb.MediaController do
   end
 
   defp redirect_temp_link(conn, id, kind) do
-    case Library.get_item(id) do
+    item =
+      case Library.get_item(id) do
+        %EagleDropboxViewer.Library.Item{} = item ->
+          item
+
+        nil ->
+          case EagleDropboxViewer.Library.DropboxLive.get_or_fetch_item(id) do
+            {:ok, item} -> item
+            _ -> nil
+          end
+      end
+
+    case item do
       nil ->
         send_resp(conn, 404, "Not found")
 

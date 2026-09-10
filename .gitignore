@@ -45,3 +45,4 @@ npm-debug.log
 /eagle_dropbox_viewer_data/
 *.db
 *.db-*
+lib/.build_id
