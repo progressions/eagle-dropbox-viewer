@@ -88,10 +88,16 @@ defmodule EagleDropboxViewerWeb.BrowseLive do
   end
 
   defp video_ext?(ext) when is_binary(ext) do
-    String.downcase(ext) in ~w(mp4 mov webm mkv)
+    String.downcase(ext) in ~w(mp4 mov webm mkv m4v avi)
   end
 
   defp video_ext?(_), do: false
+
+  defp audio_ext?(ext) when is_binary(ext) do
+    String.downcase(ext) in ~w(mp3 wav m4a aac flac ogg)
+  end
+
+  defp audio_ext?(_), do: false
 
   @impl true
   def render(assigns) do
@@ -152,18 +158,32 @@ defmodule EagleDropboxViewerWeb.BrowseLive do
           <%= if @item do %>
             <div class="grid gap-6 lg:grid-cols-2">
               <div class="rounded-box border border-base-300 bg-base-200 p-2">
-                <%= if video_ext?(@item.ext) do %>
-                  <video
-                    src={~p"/media/original/#{@item.id}"}
-                    controls
-                    class="max-h-[70vh] w-full rounded-box bg-black"
-                  />
-                <% else %>
-                  <img
-                    src={~p"/media/original/#{@item.id}"}
-                    alt={@item.name}
-                    class="max-h-[70vh] w-full rounded-box object-contain"
-                  />
+                <%= cond do %>
+                  <% audio_ext?(@item.ext) -> %>
+                    <div class="flex min-h-[12rem] flex-col items-center justify-center gap-4 rounded-box bg-base-300 p-6">
+                      <p class="text-sm opacity-70">Audio · {@item.ext}</p>
+                      <audio
+                        src={~p"/media/original/#{@item.id}"}
+                        controls
+                        preload="metadata"
+                        class="w-full max-w-md"
+                      >
+                        Your browser does not support audio playback.
+                      </audio>
+                    </div>
+                  <% video_ext?(@item.ext) -> %>
+                    <video
+                      src={~p"/media/original/#{@item.id}"}
+                      controls
+                      class="max-h-[70vh] w-full rounded-box bg-black"
+                      playsinline
+                    />
+                  <% true -> %>
+                    <img
+                      src={~p"/media/original/#{@item.id}"}
+                      alt={@item.name}
+                      class="max-h-[70vh] w-full rounded-box object-contain"
+                    />
                 <% end %>
               </div>
               <div class="space-y-3 text-sm">
@@ -203,12 +223,19 @@ defmodule EagleDropboxViewerWeb.BrowseLive do
                 <%= for item <- @items do %>
                   <.link navigate={~p"/browse/#{item.id}?view=#{@view}"} class="group block">
                     <div class="aspect-square overflow-hidden rounded-box bg-base-200 border border-base-300">
-                      <img
-                        src={~p"/media/thumb/#{item.id}"}
-                        alt={item.name}
-                        loading="lazy"
-                        class="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                      />
+                      <%= if audio_ext?(item.ext) do %>
+                        <div class="flex h-full w-full flex-col items-center justify-center gap-1 bg-base-300 text-base-content/70">
+                          <span class="text-3xl" aria-hidden="true">♪</span>
+                          <span class="text-[10px] uppercase tracking-wide">{item.ext}</span>
+                        </div>
+                      <% else %>
+                        <img
+                          src={~p"/media/thumb/#{item.id}"}
+                          alt={item.name}
+                          loading="lazy"
+                          class="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                        />
+                      <% end %>
                     </div>
                     <div class="mt-1 flex items-start justify-between gap-1">
                       <p class="truncate text-xs">{item.name}</p>
