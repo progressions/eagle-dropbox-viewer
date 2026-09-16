@@ -1,11 +1,145 @@
 defmodule EagleDropboxViewerWeb.BrowseLive do
   use EagleDropboxViewerWeb, :live_view
 
+  require Logger
+
   alias EagleDropboxViewer.Library
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "Browse", nav: Library.nav_entries())}
+    if connected?(socket) do
+      send(self(), :refresh_from_dropbox)
+    end
+
+    # Recent/Intake always come from Postgres on first paint — never blank-wait on Dropbox.
+    {:ok,
+     assign(socket,
+       page_title: "Browse",
+       nav: Library.nav_entries(),
+       refreshing: connected?(socket),
+       refresh_error: nil
+     )}
+  end
+
+  @impl true
+  def handle_info(:refresh_from_dropbox, socket) do
+    parent = self()
+
+    Task.start(fn ->
+      result =
+        try do
+          # Cold library: pull phone-index into Postgres first (fast path to a full grid),
+          # then seed/advance the Dropbox list_folder cursor without a full images/ walk.
+          if Library.item_count() == 0 do
+            case Library.sync_from_dropbox() do
+              {:ok, sync} ->
+                Logger.info("BrowseLive phone-index sync ok items=#{sync.item_count}")
+
+              {:error, reason} ->
+                Logger.warning("BrowseLive phone-index sync skipped: #{inspect(reason)}")
+            end
+          end
+
+          Library.refresh_recent_from_dropbox()
+        rescue
+          e -> {:error, Exception.message(e)}
+        catch
+          kind, reason -> {:error, {kind, reason}}
+        end
+
+      send(parent, {:dropbox_refresh_done, result})
+    end)
+
+    # Deltas/seeds finish in seconds; keep a generous cap for rare full rebuilds.
+    Process.send_after(self(), :dropbox_refresh_timeout, 300_000)
+
+    {:noreply, assign(socket, refreshing: true, refresh_error: nil)}
+  end
+
+  @impl true
+  def handle_info({:dropbox_refresh_done, result}, socket) do
+    socket =
+      case result do
+        {:ok, :already_running} ->
+          Process.send_after(self(), :dropbox_refresh_poll, 2_000)
+          socket
+
+        {:ok, info} ->
+          Logger.info("BrowseLive Dropbox refresh ok: #{inspect(info)}")
+
+          socket
+          |> assign(refreshing: false, refresh_error: nil)
+          |> reload_view()
+
+        {:error, :not_connected} ->
+          assign(socket,
+            refreshing: false,
+            refresh_error: "Connect Dropbox in Settings to load the library."
+          )
+
+        {:error, reason} ->
+          assign(socket,
+            refreshing: false,
+            refresh_error: "Dropbox refresh failed: #{inspect(reason)}"
+          )
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(:dropbox_refresh_poll, socket) do
+    if not socket.assigns[:refreshing] do
+      {:noreply, socket}
+    else
+      EagleDropboxViewer.Library.DropboxLive.ensure_cache!()
+
+      still_locked =
+        case :ets.lookup(:eagle_dropbox_live_folders, :refresh_lock) do
+          [{:refresh_lock, _}] -> true
+          _ -> false
+        end
+
+      if still_locked do
+        Process.send_after(self(), :dropbox_refresh_poll, 2_000)
+        {:noreply, socket}
+      else
+        Logger.info("BrowseLive Dropbox refresh poll — lock clear, reloading")
+
+        {:noreply,
+         socket
+         |> assign(refreshing: false, refresh_error: nil)
+         |> reload_view()}
+      end
+    end
+  end
+
+  @impl true
+  def handle_info(:dropbox_refresh_timeout, socket) do
+    if socket.assigns[:refreshing] do
+      {:noreply,
+       socket
+       |> assign(
+         refreshing: false,
+         refresh_error: "Dropbox refresh timed out — reload the page to retry."
+       )
+       |> reload_view()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp reload_view(socket) do
+    case socket.assigns do
+      %{live_action: :index, view: view, page: page} ->
+        apply_action(socket, :index, %{"view" => view, "page" => Integer.to_string(page)})
+
+      %{live_action: :show, item: %{id: id}, view: view} when not is_nil(id) ->
+        apply_action(socket, :show, %{"id" => id, "view" => view})
+
+      _ ->
+        apply_action(socket, :index, %{"view" => "recent", "page" => "1"})
+    end
   end
 
   @impl true
@@ -111,8 +245,11 @@ defmodule EagleDropboxViewerWeb.BrowseLive do
               Detail
             <% else %>
               {@item_count} items · Added · newest
+              <%= if @refreshing do %>
+                · <span class="text-warning">refreshing from Dropbox…</span>
+              <% end %>
               <%= if @sync do %>
-                · synced {Calendar.strftime(@sync.synced_at, "%Y-%m-%d %H:%M UTC")}
+                · updated {Calendar.strftime(@sync.synced_at, "%Y-%m-%d %H:%M UTC")}
               <% end %>
             <% end %>
           </p>
@@ -146,7 +283,7 @@ defmodule EagleDropboxViewerWeb.BrowseLive do
               class={[
                 "btn btn-ghost btn-sm w-full justify-start",
                 @view == entry.key && "btn-active",
-                entry.kind != :intake and is_nil(entry.resolved_id) && "btn-disabled opacity-40"
+                (entry.kind != :intake and is_nil(entry.resolved_id)) && "btn-disabled opacity-40"
               ]}
             >
               {entry.label}
@@ -212,10 +349,19 @@ defmodule EagleDropboxViewerWeb.BrowseLive do
           <% else %>
             <%= if @item_count == 0 do %>
               <div class="rounded-box border border-dashed border-base-300 p-10 text-center text-sm opacity-70">
-                <%= if Library.item_count() == 0 do %>
-                  No index yet — sync from <.link navigate={~p"/settings"} class="link">Settings</.link>.
-                <% else %>
-                  Nothing in {(@view_label)}.
+                <%= cond do %>
+                  <% @refreshing -> %>
+                    Loading library from Dropbox…
+                  <% @refresh_error -> %>
+                    {@refresh_error}
+                    <%= if String.contains?(to_string(@refresh_error), "Connect Dropbox") do %>
+                      <.link navigate={~p"/settings"} class="link">Open Settings</.link>
+                    <% end %>
+                  <% Library.item_count() == 0 -> %>
+                    No library loaded yet — pulling from Dropbox automatically.
+                    If this sticks, connect Dropbox in <.link navigate={~p"/settings"} class="link">Settings</.link>.
+                  <% true -> %>
+                    Nothing in {@view_label}.
                 <% end %>
               </div>
             <% else %>

@@ -47,6 +47,25 @@ defmodule EagleDropboxViewerWeb.SettingsController do
     end
   end
 
+  def refresh_dropbox(conn, _params) do
+    case Library.refresh_recent_from_dropbox(force: true) do
+      {:ok, info} ->
+        conn
+        |> put_flash(:info, "Dropbox library rebuild started/finished: #{inspect(info)}")
+        |> redirect(to: ~p"/settings")
+
+      {:error, :not_connected} ->
+        conn
+        |> put_flash(:error, "Connect Dropbox first.")
+        |> redirect(to: ~p"/settings")
+
+      {:error, reason} ->
+        conn
+        |> put_flash(:error, "Dropbox rebuild failed: #{inspect(reason)}")
+        |> redirect(to: ~p"/settings")
+    end
+  end
+
   defp dropbox_configured? do
     key = Application.get_env(:eagle_dropbox_viewer, :dropbox_app_key)
     secret = Application.get_env(:eagle_dropbox_viewer, :dropbox_app_secret)

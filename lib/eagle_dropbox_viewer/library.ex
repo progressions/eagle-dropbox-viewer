@@ -55,7 +55,10 @@ defmodule EagleDropboxViewer.Library do
               if sf["name"] == entry.name, do: sf["id"]
             end)
 
-          Map.merge(entry, %{resolved_id: id, node: Enum.find(smarts, fn {sf, _} -> sf["id"] == id end)})
+          Map.merge(entry, %{
+            resolved_id: id,
+            node: Enum.find(smarts, fn {sf, _} -> sf["id"] == id end)
+          })
 
         :folder ->
           id =
@@ -73,17 +76,31 @@ defmodule EagleDropboxViewer.Library do
     view_page("recent", page)
   end
 
-  def view_page(view_key, page \\ 1) when is_binary(view_key) and is_integer(page) and page >= 1 do
-    offset = (page - 1) * @page_size
-    items = items_for_view(view_key)
-    total = length(items)
-    page_items = items |> Enum.drop(offset) |> Enum.take(@page_size)
-    total_pages = if total == 0, do: 1, else: div(total + @page_size - 1, @page_size)
+  def view_page(view_key, page \\ 1)
+      when is_binary(view_key) and is_integer(page) and page >= 1 do
+    cond do
+      view_key == "intake" ->
+        {:ok, result} = EagleDropboxViewer.Library.DropboxLive.intake_page(page, @page_size)
+        result
 
-    %{items: page_items, total: total, total_pages: total_pages, page: page}
+      view_key == "recent" ->
+        {:ok, result} = EagleDropboxViewer.Library.DropboxLive.recent_page(page, @page_size)
+        result
+
+      true ->
+        offset = (page - 1) * @page_size
+        items = items_for_view(view_key)
+        total = length(items)
+        page_items = items |> Enum.drop(offset) |> Enum.take(@page_size)
+        total_pages = if total == 0, do: 1, else: div(total + @page_size - 1, @page_size)
+
+        %{items: page_items, total: total, total_pages: total_pages, page: page}
+    end
   end
 
-  def items_for_view("recent") do
+  def items_for_view("recent"), do: items_for_view("recent_db")
+
+  def items_for_view("recent_db") do
     Item
     |> Repo.all()
     |> sort_added_desc()
@@ -156,6 +173,11 @@ defmodule EagleDropboxViewer.Library do
     end)
   end
 
+  @doc """
+  Pull `phone-index.json` from Dropbox into Postgres.
+
+  Prefer `maybe_sync_from_dropbox/1` from Browse so the UI does not need a Sync button.
+  """
   def sync_from_dropbox do
     Dropbox.with_access_token(fn token ->
       path = Path.join(Dropbox.library_path(), "phone-index.json")
@@ -165,6 +187,39 @@ defmodule EagleDropboxViewer.Library do
         apply_index(index)
       end
     end)
+  end
+
+  @doc """
+  Background Dropbox refresh for Browse Recent/Intake.
+
+  Uses a persisted list_folder cursor (deltas). Pass `force: true` to clear the
+  cursor and recursively rebuild the newest window (Settings only).
+  """
+  def refresh_recent_from_dropbox(opts \\ []) do
+    EagleDropboxViewer.Library.DropboxLive.refresh_latest_cache(opts)
+  end
+
+  def clear_dropbox_cursor! do
+    EagleDropboxViewer.Library.DropboxLive.clear_cursor!()
+  end
+
+  @doc """
+  Optional phone-index sync for smart-folder pins only.
+  """
+  def maybe_sync_from_dropbox(max_age_seconds \\ 60) when is_integer(max_age_seconds) do
+    case latest_sync() do
+      nil ->
+        sync_from_dropbox()
+
+      sync ->
+        age = DateTime.diff(DateTime.utc_now(), sync.synced_at, :second)
+
+        if age >= max_age_seconds do
+          sync_from_dropbox()
+        else
+          {:ok, :fresh}
+        end
+    end
   end
 
   def apply_index(%{"items" => items} = index) when is_list(items) do
@@ -208,7 +263,6 @@ defmodule EagleDropboxViewer.Library do
 
   def apply_index(_), do: {:error, :invalid_index}
 
-
   # Match eagle-browse default: "Added · newest" (btime), with mtime fallback.
   defp sort_added_desc(items) when is_list(items) do
     now_ms = System.system_time(:millisecond)
@@ -230,7 +284,9 @@ defmodule EagleDropboxViewer.Library do
     )
   end
 
-  def flatten_smart_folders(%{"roots" => roots}) when is_list(roots), do: flatten_smart_folders(roots)
+  def flatten_smart_folders(%{"roots" => roots}) when is_list(roots),
+    do: flatten_smart_folders(roots)
+
   def flatten_smart_folders(nodes) when is_list(nodes), do: walk_nodes(nodes, 0)
   def flatten_smart_folders(_), do: []
 
